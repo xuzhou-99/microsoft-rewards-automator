@@ -172,18 +172,19 @@ async function getCurrentPoints() {
                   };
 
                   // 检查元素内容是否稳定的辅助函数
-                  const isContentStable = (element, checkInterval = 200, checkTimes = 15) => {
+                  const isContentStable = (element, checkInterval = 200, checkTimes = 5) => {
                     if (!element) return true;
-                    
-                    let previousContent = null;
+
+                    let previousContent = -1;
                     let stableCount = 0;
-                    
+
                     return new Promise((resolve) => {
                       const checkContent = () => {
                         // 优先获取aria-label属性，如果没有则获取textContent
                         const content = element.getAttribute('aria-label') || element.textContent;
-                        
-                        if (content === previousContent) {
+                        console.log("检查元素内容:", stableCount, previousContent, content);
+
+                        if (content && previousContent && (content === previousContent)) {
                           stableCount++;
                           if (stableCount >= checkTimes) {
                             resolve(true); // 内容稳定
@@ -196,7 +197,7 @@ async function getCurrentPoints() {
                           setTimeout(checkContent, checkInterval);
                         }
                       };
-                      
+
                       checkContent();
                     });
                   };
@@ -205,10 +206,10 @@ async function getCurrentPoints() {
                   const waitForAnimationComplete = (element, maxWaitTime = 5000, checkInterval = 200) => {
                     return new Promise((resolve) => {
                       const startTime = Date.now();
-                      
+
                       const checkAnimation = async () => {
                         const elapsed = Date.now() - startTime;
-                        
+
                         if (elapsed >= maxWaitTime) {
                           resolve(); // 超时，不再等待
                         } else {
@@ -220,7 +221,7 @@ async function getCurrentPoints() {
                           }
                         }
                       };
-                      
+
                       checkAnimation();
                     });
                   };
@@ -242,18 +243,18 @@ async function getCurrentPoints() {
                   for (const selector of pointSelectors) {
                     let element = document.querySelector(selector);
                     console.log(`尝试选择器 ${selector}:`, element);
-                    
+
                     // 处理mee-rewards-counter-animation的特殊情况
                     if ((selector === 'mee-rewards-counter-animation' || selector === 'mee-rewards-counter-animation span') && element) {
                       // 确保获取到最内层的元素
                       if (selector === 'mee-rewards-counter-animation' && element.querySelector('span')) {
                         element = element.querySelector('span');
                       }
-                      
+
                       // 等待动画完成
                       await waitForAnimationComplete(element);
                     }
-                    
+
                     if (element) {
                       // 优先检查aria-label属性
                       if (element.getAttribute('aria-label')) {
@@ -300,7 +301,7 @@ async function getCurrentPoints() {
                 console.debug('注入积分脚本结果:', injectionResults);
                 // 无论结果如何，都尝试关闭标签页
                 try {
-                  chrome.tabs.remove(tab.id);
+                  // chrome.tabs.remove(tab.id);
                 } catch (removeError) {
                   console.warn(`Failed to remove tab ${tab.id}:`, removeError);
                 }
@@ -316,7 +317,7 @@ async function getCurrentPoints() {
               console.error("Error executing points retrieval script:", error);
               // 尝试关闭标签页
               try {
-                chrome.tabs.remove(tab.id);
+                // chrome.tabs.remove(tab.id);
               } catch (removeError) {
                 console.warn(`Failed to remove tab ${tab.id}:`, removeError);
               }
@@ -350,6 +351,7 @@ async function performSearch(keyword) {
               timestamp: new Date().toISOString(),
               success: false,
               points: "0",
+              totalPoints: "0",
               error: "Tab closed or unavailable"
             };
             searchResults.push(result);
@@ -361,43 +363,64 @@ async function performSearch(keyword) {
             chrome.scripting.executeScript({
               target: { tabId: tab.id },
               function: () => {
+
+                const pointInfo = {
+                  hasPoint: false,
+                  pointAmount: null,
+                  selector: null,
+                  content: null
+                };
+
+                // 处理积分文本的辅助函数，支持带逗号的数字格式
+                const extractPoints = (text) => {
+                  if (!text) return null;
+                  // 移除逗号等千位分隔符
+                  const cleanText = text.replace(/,/g, '');
+                  const match = cleanText.match(/\d+/);
+                  return match ? parseInt(match[0], 10) : null;
+                };
+
                 // 尝试多种可能的选择器来获取积分信息
-                  const pointSelectors = [
-                    // 原有选择器
-                    '.points-container[data-tag="RewardsHeader.Counter"]',
-                    // 尝试通过aria-label属性查找
-                    '[aria-label*="积分"]',
-                    '[aria-label*="points"]'
-                  ];
+                const pointSelectors = [
+                  // 原有选择器
+                  '.points-container[data-tag="RewardsHeader.Counter"]',
+                  // 尝试通过aria-label属性查找
+                  '[aria-label*="积分"]',
+                  '[aria-label*="points"]'
+                ];
 
                 let pointNotification = null;
                 for (const selector of pointSelectors) {
                   pointNotification = document.querySelector(selector);
                   console.log(`尝试选择器 ${selector}:`, pointNotification);
-                  if (pointNotification) break;
+                  if (pointNotification) {
+                    pointInfo.selector = selector;
+                    pointInfo.content = pointNotification;
+                    break;
+                  }
                 }
-                console.log(`积分元素 ${selector}:`, pointNotification);
+                console.log(`积分元素 ${pointInfo.selector}:`, pointNotification);
 
                 // 提取积分数量
                 let pointAmount = "0";
                 if (pointNotification) {
                   // 尝试从文本中提取数字
                   const text = pointNotification.textContent.trim();
-                  const match = text.match(/\d+/);
-                  pointAmount = match ? match[0] : "0";
-                  console.log(`积分文本 ${selector}:`, text);
-                  console.log(`积分匹配 ${selector}:`, match);
+                  const points = extractPoints(text);
+                  pointAmount = points !== null ? points.toString() : "0";
+                  console.log(`积分文本 ${pointInfo.selector}:`, text, pointAmount);
 
                   // 也尝试从data属性中获取
                   if (pointNotification.dataset.rewardsPoints) {
                     pointAmount = pointNotification.dataset.rewardsPoints;
                   }
+                  console.log(`积分文本 ${pointInfo.selector}:`, text, pointAmount);
                 }
 
-                return {
-                  hasPoint: !!pointNotification,
-                  pointAmount: pointAmount
-                };
+                pointInfo.pointAmount = pointAmount;
+                pointInfo.hasPoint = !!pointNotification;
+
+                return pointInfo;
               }
             }, (injectionResults) => {
               console.debug('注入搜索脚本结果:', injectionResults);
@@ -413,7 +436,8 @@ async function performSearch(keyword) {
                 keyword,
                 timestamp: new Date().toISOString(),
                 success: success,
-                points: success ? injectionResults[0].result.pointAmount || "0" : "0"
+                points: success ? injectionResults[0].result.pointAmount || "0" : "0",
+                totalPoints: success ? injectionResults[0].result.pointAmount || "0" : "0"
               };
 
               searchResults.push(result);
@@ -423,7 +447,7 @@ async function performSearch(keyword) {
             console.error(`Error executing script for search "${keyword}":`, error);
             // 尝试关闭标签页
             try {
-              chrome.tabs.remove(tab.id);
+              // chrome.tabs.remove(tab.id);
             } catch (removeError) {
               console.warn(`Failed to remove tab ${tab.id}:`, removeError);
             }
@@ -499,7 +523,7 @@ async function startAutomation() {
     // 等待一段时间，添加1-5秒的随机延迟以模拟人类行为
     const randomDelay = Math.floor(Math.random() * 5) + 1; // 1-5秒的随机延迟
     const totalDelay = (settings.searchInterval + randomDelay) * 1000;
-    console.log(`搜索间隔: ${settings.searchInterval}秒 + 随机延迟: ${randomDelay}秒 = 总计: ${totalDelay / 1000}秒`);
+    console.log(`Search 间隔: ${settings.searchInterval}秒 + 随机延迟: ${randomDelay}秒 = 总计: ${totalDelay / 1000}秒`);
     await new Promise(resolve => setTimeout(resolve, totalDelay));
   }
 
@@ -575,12 +599,20 @@ function updateStatus() {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
     case "startAutomation":
-      startAutomation();
-      sendResponse({ status: "started" });
+      if (isRunning) {
+        sendResponse({ status: "already_running", message: "自动化已经在运行中" });
+      } else {
+        startAutomation();
+        sendResponse({ status: "started" });
+      }
       break;
     case "stopAutomation":
-      stopAutomation();
-      sendResponse({ status: "stopped" });
+      if (!isRunning) {
+        sendResponse({ status: "already_stopped", message: "自动化已经停止" });
+      } else {
+        stopAutomation();
+        sendResponse({ status: "stopped" });
+      }
       break;
     case "getStatus":
       sendResponse({

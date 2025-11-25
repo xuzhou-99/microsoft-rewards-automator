@@ -139,8 +139,9 @@ function updateSearchLog(results) {
     
     const statusIcon = result.success ? '✓' : '✗';
     const pointsText = result.success ? `+${result.points}` : '';
+    const totalText = result.success ? `total ${result.totalPoints}` : '';
     
-    logItem.textContent = `${statusIcon} ${result.keyword} ${pointsText}`;
+    logItem.textContent = `${statusIcon} ${result.keyword} ${pointsText} ${totalText}`;
     searchLog.appendChild(logItem);
   });
   
@@ -320,13 +321,20 @@ function startAutomation() {
     console.debug('启动响应:', response);
     // 恢复按钮状态
     startBtn.style.opacity = '1';
+    startBtn.disabled = false;
+    startBtn.textContent = '开始';
     
-    if (response && response.status === 'started') {
-      updateStatus();
-      showNotification('自动化搜索已开始', 'success');
+    if (response) {
+      if (response.status === 'started') {
+        updateStatus();
+        showNotification('自动化搜索已开始', 'success');
+      } else if (response.status === 'already_running') {
+        showNotification(response.message, 'warning');
+      } else {
+        showNotification('启动失败，请稍后再试', 'error');
+        console.error('启动失败:', response);
+      }
     } else {
-      startBtn.disabled = false;
-      startBtn.textContent = '开始';
       showNotification('启动失败，请稍后再试', 'error');
       console.error('启动失败:', response);
     }
@@ -344,13 +352,20 @@ function stopAutomation() {
     console.debug('停止响应:', response);
     // 恢复按钮状态
     stopBtn.style.opacity = '1';
+    stopBtn.disabled = false;
+    stopBtn.textContent = '停止';
     
-    if (response && response.status === 'stopped') {
-      updateStatus();
-      showNotification('自动化搜索已停止', 'info');
+    if (response) {
+      if (response.status === 'stopped') {
+        updateStatus();
+        showNotification('自动化搜索已停止', 'info');
+      } else if (response.status === 'already_stopped') {
+        showNotification(response.message, 'warning');
+      } else {
+        showNotification('停止失败，请稍后再试', 'error');
+        console.error('停止失败:', response);
+      }
     } else {
-      stopBtn.disabled = false;
-      stopBtn.textContent = '停止';
       showNotification('停止失败，请稍后再试', 'error');
       console.error('停止失败:', response);
     }
