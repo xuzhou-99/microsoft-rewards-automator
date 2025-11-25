@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Microsoft Rewards Automator</title>
+  <style>
+    body {
+      width: 350px;
+      padding: 15px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8f9fa;
+    }
+    
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    
+    .header img {
+      width: 32px;
+      height: 32px;
+    }
+    
+    .header h1 {
+      font-size: 18px;
+      margin: 0;
+      color: #0078d4;
+    }
+    
+    .status-section {
+      background-color: white;
+      border-radius: 8px;
+      padding: 15px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .status-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #333;
+    }
+    
+    .progress-container {
+      width: 100%;
+      height: 8px;
+      background-color: #e9ecef;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+    
+    .progress-bar {
+      height: 100%;
+      background-color: #0078d4;
+      border-radius: 4px;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    
+    .status-details {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 10px;
+    }
+    
+    .points-display {
+      font-size: 14px;
+      color: #107c10;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    
+    .controls {
+      display: flex;
+      gap: 10px;
+    }
+    
+    button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    
+    #startBtn {
+      background-color: #0078d4;
+      color: white;
+    }
+    
+    #startBtn:hover {
+      background-color: #0063b1;
+    }
+    
+    #stopBtn {
+      background-color: #e81123;
+      color: white;
+    }
+    
+    #stopBtn:hover {
+      background-color: #c50f1f;
+    }
+    
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #dee2e6;
+      margin-top: 10px;
+    }
+    
+    .tab {
+      padding: 8px 16px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      font-size: 14px;
+      font-weight: 600;
+      color: #666;
+    }
+    
+    .tab.active {
+      border-bottom-color: #0078d4;
+      color: #0078d4;
+    }
+    
+    .tab-content {
+      display: none;
+      margin-top: 15px;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .records-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .record-item {
+      background-color: white;
+      border-radius: 4px;
+      padding: 10px;
+      margin-bottom: 8px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .record-date {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 5px;
+    }
+    
+    .record-details {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      color: #666;
+    }
+    
+    .settings-group {
+      margin-bottom: 15px;
+    }
+    
+    .settings-label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      color: #333;
+    }
+    
+    input[type="number"], select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    .settings-note {
+      font-size: 12px;
+      color: #666;
+      margin-top: 5px;
+    }
+    
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+    }
+    
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 24px;
+    }
+    
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    
+    input:checked + .toggle-slider {
+      background-color: #0078d4;
+    }
+    
+    input:checked + .toggle-slider:before {
+      transform: translateX(26px);
+    }
+    
+    .toggle-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    #saveSettingsBtn {
+      background-color: #0078d4;
+      color: white;
+      margin-top: 10px;
+    }
+    
+    #saveSettingsBtn:hover {
+      background-color: #0063b1;
+    }
+    
+    .search-log {
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 12px;
+      color: #666;
+      background-color: white;
+      border-radius: 4px;
+      padding: 10px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .search-log-item {
+      margin-bottom: 5px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #f1f1f1;
+    }
+    
+    .search-log-item:last-child {
+      border-bottom: none;
+    }
+    
+    .search-success {
+      color: #107c10;
+    }
+    
+    .search-failed {
+      color: #e81123;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <img src="icons/icon48.svg" alt="Microsoft Rewards Automator">
+      <h1>Microsoft Rewards Automator</h1>
+    </div>
+    
+    <div class="status-section">
+      <div class="status-title">当前状态</div>
+      <div class="progress-container">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="status-details">
+      <span id="statusText">就绪</span>
+      <span id="progressText">0/0</span>
+    </div>
+    <div class="points-display" id="currentPoints">当前积分: 加载中...</div>
+      
+      <div class="controls">
+        <button id="startBtn">开始自动化</button>
+        <button id="stopBtn" disabled>停止</button>
+      </div>
+      
+      <div class="search-log" id="searchLog">
+        <!-- 搜索日志将在这里动态显示 -->
+      </div>
+    </div>
+    
+    <div class="tabs">
+      <div class="tab active" data-tab="history">积分记录</div>
+      <div class="tab" data-tab="settings">设置</div>
+    </div>
+    
+    <div class="tab-content active" id="historyContent">
+      <div class="records-list" id="recordsList">
+        <!-- 积分记录将在这里动态显示 -->
+        <div class="record-item">
+          <div class="record-date">加载中...</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="tab-content" id="settingsContent">
+      <div class="settings-group">
+        <label class="settings-label" for="dailySearches">每日搜索次数</label>
+        <input type="number" id="dailySearches" min="1" max="100" value="50">
+        <div class="settings-note">建议设置为50次以获取最大积分</div>
+      </div>
+      
+      <div class="settings-group">
+        <label class="settings-label" for="searchInterval">搜索间隔（秒）</label>
+        <input type="number" id="searchInterval" min="5" max="60" value="15">
+        <div class="settings-note">建议设置为10-30秒，避免被检测为机器人</div>
+      </div>
+      
+      <div class="settings-group">
+        <div class="toggle-container">
+          <label class="settings-label">使用热点关键词</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="useHotTopics" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="settings-note">启用后将使用当日热点话题作为搜索关键词</div>
+      </div>
+      
+      <div class="settings-group">
+        <label class="settings-label" for="hotTopicSource">热点来源</label>
+        <select id="hotTopicSource">
+          <option value="baidu">百度热搜</option>
+          <option value="weibo">微博热搜</option>
+          <option value="zhihu">知乎热搜</option>
+        </select>
+      </div>
+      
+      <button id="saveSettingsBtn">保存设置</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

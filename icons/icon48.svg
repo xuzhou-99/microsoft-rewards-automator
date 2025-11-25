@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <!-- 背景圆形 -->
+  <circle cx="24" cy="24" r="22" fill="#0078D4"/>
+  <!-- 奖励星形 -->
+  <path d="M24 6l3.5 12.5h12.5l-10 7.5 2.5 12.5L24 33l-8 5.5 2.5-12.5-10-7.5h12.5z" fill="#FFB900"/>
+  <!-- 微软标志元素 -->
+  <rect x="15" y="18" width="5" height="15" fill="white"/>
+  <rect x="23" y="14" width="5" height="19" fill="white"/>
+  <rect x="31" y="18" width="5" height="15" fill="white"/>
+</svg>
