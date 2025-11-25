@@ -12,6 +12,9 @@ const saveSettingsBtn = document.getElementById('saveSettingsBtn');
 
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
+  // 添加在标签页中打开的按钮
+  addOpenInTabButton();
+  
   // 获取当前状态
   updateStatus();
   
@@ -72,6 +75,52 @@ function updateStatus() {
 }
 
 // 更新UI
+// 检查当前是否在标签页中打开
+function isInTab() {
+  return window.innerWidth > 600; // 简单判断，实际根据需要调整
+}
+
+// 添加在标签页中打开的功能
+function addOpenInTabButton() {
+  // 只在弹窗模式下显示这个按钮
+  if (!isInTab()) {
+    const openTabBtn = document.createElement('button');
+    openTabBtn.id = 'openTabBtn';
+    openTabBtn.textContent = '在新标签页中打开';
+    openTabBtn.style.backgroundColor = '#6c757d';
+    openTabBtn.style.marginLeft = '10px';
+    
+    // 添加样式
+    openTabBtn.style.color = 'white';
+    openTabBtn.style.border = 'none';
+    openTabBtn.style.borderRadius = '4px';
+    openTabBtn.style.padding = '10px';
+    openTabBtn.style.fontSize = '14px';
+    openTabBtn.style.fontWeight = '600';
+    openTabBtn.style.cursor = 'pointer';
+    openTabBtn.style.transition = 'background-color 0.2s ease';
+    
+    openTabBtn.addEventListener('mouseover', () => {
+      openTabBtn.style.backgroundColor = '#5a6268';
+    });
+    
+    openTabBtn.addEventListener('mouseout', () => {
+      openTabBtn.style.backgroundColor = '#6c757d';
+    });
+    
+    openTabBtn.addEventListener('click', () => {
+      // 在新标签页中打开插件
+      chrome.tabs.create({ url: chrome.runtime.getURL('popup.html') });
+    });
+    
+    // 添加到控制按钮区域
+    const controlsDiv = document.querySelector('.controls');
+    if (controlsDiv) {
+      controlsDiv.appendChild(openTabBtn);
+    }
+  }
+}
+
 function updateUI(status) {
   // 更新进度条
   const progress = status.totalSearches > 0 
@@ -138,8 +187,8 @@ function updateSearchLog(results) {
     logItem.className = `search-log-item ${result.success ? 'search-success' : 'search-failed'}`;
     
     const statusIcon = result.success ? '✓' : '✗';
-    const pointsText = result.success ? `+${result.points}` : '';
-    const totalText = result.success ? `total ${result.totalPoints}` : '';
+    const pointsText = result.success ? `+${result.awardPoints}` : '';
+    const totalText = result.success ? `total ${result.rewardsBalance}` : '';
     
     logItem.textContent = `${statusIcon} ${result.keyword} ${pointsText} ${totalText}`;
     searchLog.appendChild(logItem);

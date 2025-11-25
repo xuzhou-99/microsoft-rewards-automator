@@ -301,7 +301,7 @@ async function getCurrentPoints() {
                 console.debug('注入积分脚本结果:', injectionResults);
                 // 无论结果如何，都尝试关闭标签页
                 try {
-                  // chrome.tabs.remove(tab.id);
+                  chrome.tabs.remove(tab.id);
                 } catch (removeError) {
                   console.warn(`Failed to remove tab ${tab.id}:`, removeError);
                 }
@@ -317,7 +317,7 @@ async function getCurrentPoints() {
               console.error("Error executing points retrieval script:", error);
               // 尝试关闭标签页
               try {
-                // chrome.tabs.remove(tab.id);
+                chrome.tabs.remove(tab.id);
               } catch (removeError) {
                 console.warn(`Failed to remove tab ${tab.id}:`, removeError);
               }
@@ -364,13 +364,6 @@ async function performSearch(keyword) {
               target: { tabId: tab.id },
               function: () => {
 
-                const pointInfo = {
-                  hasPoint: false,
-                  pointAmount: null,
-                  selector: null,
-                  content: null
-                };
-
                 // 处理积分文本的辅助函数，支持带逗号的数字格式
                 const extractPoints = (text) => {
                   if (!text) return null;
@@ -379,6 +372,43 @@ async function performSearch(keyword) {
                   const match = cleanText.match(/\d+/);
                   return match ? parseInt(match[0], 10) : null;
                 };
+
+                // 解析奖励脚本内容
+                const parseRewardsScriptContent = function (scriptContent) {
+                  try {
+                    // 尝试从脚本内容中提取RewardsSessionData对象
+                    // 查找以"RewardsSessionData":{ 开头，以 } 结尾的JSON字符串
+                    const sessionDataMatch = scriptContent.match(/"RewardsSessionData":(\{[^}]*\})/);
+                    if (sessionDataMatch && sessionDataMatch[1]) {
+                      // 提取JSON字符串
+                      const jsonString = sessionDataMatch[1];
+                      // 尝试解析JSON
+                      const sessionData = JSON.parse(jsonString);
+
+                      // 提取有用的用户信息
+                      const userInfo = {
+                        isRewardUser: sessionData.IsRewardUser,
+                        isLevel2: sessionData.IsLevel2,
+                        balance: sessionData.Balance,
+                        rewardsBalance: sessionData.RewardsBalance,
+                        rebatesBalance: sessionData.RebatesBalance,
+                        previousBalance: sessionData.PreviousBalance,
+                        goalTrackBalance: sessionData.GoalTrackBalance,
+                        isAdultMSA: sessionData.IsAdultMSA,
+                        isRebatesUser: sessionData.IsRebatesUser,
+                        visitedCount: sessionData.VisitedCount,
+                        lastVisitTime: sessionData.LastVisitTime,
+                        timestamp: new Date().toISOString()
+                      };
+
+                      return userInfo;
+                    }
+                    return null;
+                  } catch (error) {
+                    console.error('解析奖励脚本内容时出错:', error);
+                    return null;
+                  }
+                }
 
                 // 尝试多种可能的选择器来获取积分信息
                 const pointSelectors = [
@@ -389,17 +419,17 @@ async function performSearch(keyword) {
                   '[aria-label*="points"]'
                 ];
 
+                let selectorMatch = null;
                 let pointNotification = null;
                 for (const selector of pointSelectors) {
                   pointNotification = document.querySelector(selector);
                   console.log(`尝试选择器 ${selector}:`, pointNotification);
                   if (pointNotification) {
-                    pointInfo.selector = selector;
-                    pointInfo.content = pointNotification;
+                    selectorMatch = selector;
+                    console.log(`积分元素 ${selectorMatch}:`, pointNotification);
                     break;
                   }
                 }
-                console.log(`积分元素 ${pointInfo.selector}:`, pointNotification);
 
                 // 提取积分数量
                 let pointAmount = "0";
@@ -408,21 +438,55 @@ async function performSearch(keyword) {
                   const text = pointNotification.textContent.trim();
                   const points = extractPoints(text);
                   pointAmount = points !== null ? points.toString() : "0";
-                  console.log(`积分文本 ${pointInfo.selector}:`, text, pointAmount);
+                  console.log(`积分文本 ${selectorMatch}:`, text, pointAmount);
 
                   // 也尝试从data属性中获取
                   if (pointNotification.dataset.rewardsPoints) {
                     pointAmount = pointNotification.dataset.rewardsPoints;
                   }
-                  console.log(`积分文本 ${pointInfo.selector}:`, text, pointAmount);
+                  console.log(`积分文本 ${selectorMatch}:`, text, pointAmount);
                 }
 
-                pointInfo.pointAmount = pointAmount;
-                pointInfo.hasPoint = !!pointNotification;
+                // 提取特定的script标签内容
+                let parsedRewardsData = null;
+                let rewardsScriptContent = null;
+                try {
+                  const scriptTags = document.querySelectorAll('script[type="text/javascript"][data-bing-script="1"]');
+                  for (const scriptTag of scriptTags) {
+                    const content = scriptTag.textContent.trim();
+                    if (content.includes('sj_evt') && content.includes('ModernRewards.ReportActivity')) {
+                      rewardsScriptContent = content;
+                      console.log('找到奖励脚本内容:', rewardsScriptContent.substring(0, 100) + '...');
+                      break;
+                    }
+                  }
 
-                return pointInfo;
+                  if (rewardsScriptContent) {
+                    // debugger;
+                    // 解析脚本内容中的用户信息和积分数据
+                    const parsedData = parseRewardsScriptContent(rewardsScriptContent);
+                    if (parsedData) {
+                      parsedRewardsData = parsedData;
+                      console.log('成功解析脚本内容:', parsedRewardsData);
+                    }
+                  } else {
+                    console.log('未找到奖励脚本内容');
+                  }
+                } catch (e) {
+                  console.error('提取script标签内容时出错:', e);
+                }
+
+                return {
+                  hasPoint: !!pointNotification,
+                  pointAmount: pointAmount,
+                  selector: selectorMatch,
+                  content: pointNotification,
+                  rewardsScriptContent: rewardsScriptContent,
+                  parsedRewardsData: parsedRewardsData
+                };
               }
             }, (injectionResults) => {
+
               console.debug('注入搜索脚本结果:', injectionResults);
               // 无论结果如何，都尝试关闭标签页
               try {
@@ -432,13 +496,20 @@ async function performSearch(keyword) {
               }
 
               const success = injectionResults && injectionResults[0] && injectionResults[0].result && injectionResults[0].result.hasPoint;
+              const resultData = success ? injectionResults[0].result : null;
               const result = {
                 keyword,
                 timestamp: new Date().toISOString(),
                 success: success,
-                points: success ? injectionResults[0].result.pointAmount || "0" : "0",
-                totalPoints: success ? injectionResults[0].result.pointAmount || "0" : "0"
+                points: resultData ? resultData.pointAmount || "0" : "0",
+                totalPoints: resultData ? resultData.totalPoints || "0" : "0",
+                rewardsScriptContent: resultData ? resultData.rewardsScriptContent : null,
+                parsedRewardsData: resultData ? resultData.parsedRewardsData : null,
+                previousBalance: resultData && resultData.parsedRewardsData ? resultData.parsedRewardsData.previousBalance || "0" : "0",
+                rewardsBalance: resultData && resultData.parsedRewardsData ? resultData.parsedRewardsData.rewardsBalance || "0" : "0",
               };
+
+              result.awardPoints = parseInt(result.previousBalance) - parseInt(result.rewardsBalance);
 
               searchResults.push(result);
               resolve(result);
@@ -447,7 +518,7 @@ async function performSearch(keyword) {
             console.error(`Error executing script for search "${keyword}":`, error);
             // 尝试关闭标签页
             try {
-              // chrome.tabs.remove(tab.id);
+              chrome.tabs.remove(tab.id);
             } catch (removeError) {
               console.warn(`Failed to remove tab ${tab.id}:`, removeError);
             }
@@ -574,9 +645,8 @@ async function startAutomation() {
   });
 }
 
-function getPoints() {
 
-}
+
 
 // 停止自动化
 function stopAutomation() {
@@ -594,6 +664,14 @@ function updateStatus() {
     searchResults
   });
 }
+
+// 监听commands命令
+chrome.commands.onCommand.addListener((command) => {
+  if (command === 'open_in_tab') {
+    // 在新标签页中打开插件页面
+    chrome.tabs.create({ url: chrome.runtime.getURL('popup.html') });
+  }
+});
 
 // 监听来自popup的消息
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

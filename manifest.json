@@ -35,6 +35,19 @@
   },
   "options_ui": {
     "page": "options.html",
-    "open_in_tab": false
+    "open_in_tab": true
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+R"
+      }
+    },
+    "open_in_tab": {
+      "description": "在新标签页中打开插件",
+      "suggested_key": {
+        "default": "Ctrl+Shift+T"
+      }
+    }
   }
 }
