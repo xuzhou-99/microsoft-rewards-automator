@@ -696,13 +696,13 @@ async function openNewTab(title, targetUrl) {
 
               // 无论结果如何，都尝试关闭标签页
               try {
-                // chrome.tabs.remove(tab.id, () => {
-                //   if (chrome.runtime.lastError) {
-                //     console.warn(`尝试关闭标签 ${tab.id} 时出错:`, chrome.runtime.lastError.message);
-                //   } else {
-                //     console.debug(`已成功关闭标签 ${tab.id}`);
-                //   }
-                // });
+                chrome.tabs.remove(tab.id, () => {
+                  if (chrome.runtime.lastError) {
+                    console.warn(`尝试关闭标签 ${tab.id} 时出错:`, chrome.runtime.lastError.message);
+                  } else {
+                    console.debug(`已成功关闭标签 ${tab.id}`);
+                  }
+                });
               } catch (removeError) {
                 console.warn(`关闭标签 ${tab.id} 异常:`, removeError);
               }
