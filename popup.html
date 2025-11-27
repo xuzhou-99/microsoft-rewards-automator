@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Microsoft Rewards Automator</title>
+  <link rel="icon" type="image/svg+xml" href="icons/icon16.svg">
   <style>
     body {
       min-width: 350px;
@@ -282,6 +283,13 @@
       justify-content: space-between;
     }
     
+    /* 按钮组样式 */
+    .settings-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
     #saveSettingsBtn {
       background-color: #0078d4;
       color: white;
@@ -290,6 +298,16 @@
     
     #saveSettingsBtn:hover {
       background-color: #0063b1;
+    }
+    
+    #advancedSettingsBtn {
+      background-color: #f3f2f1;
+      color: #333;
+      margin-top: 10px;
+    }
+    
+    #advancedSettingsBtn:hover {
+      background-color: #e6e6e6;
     }
     
     .search-log {
@@ -397,7 +415,10 @@
         </select>
       </div>
       
-      <button id="saveSettingsBtn">保存设置</button>
+      <div class="settings-buttons">
+        <button id="saveSettingsBtn">保存设置</button>
+        <button id="advancedSettingsBtn">高级设置</button>
+      </div>
     </div>
   </div>
 

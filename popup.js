@@ -9,6 +9,7 @@ const recordsList = document.getElementById('recordsList');
 const tabs = document.querySelectorAll('.tab');
 const tabContents = document.querySelectorAll('.tab-content');
 const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+const advancedSettingsBtn = document.getElementById('advancedSettingsBtn');
 
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
@@ -28,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
   startBtn.addEventListener('click', startAutomation);
   stopBtn.addEventListener('click', stopAutomation);
   saveSettingsBtn.addEventListener('click', saveSettings);
+  advancedSettingsBtn.addEventListener('click', openAdvancedSettings);
   
   // 设置标签页切换
   tabs.forEach(tab => {
@@ -218,10 +220,11 @@ function displayRecords(records) {
   }
   
   // 按日期降序排序
-  records.sort((a, b) => new Date(b.date) - new Date(a.date));
+  records.sort((a, b) => new Date(b.date + ' ' + b.time) - new Date(a.date + ' ' + a.time));
   
   // 只显示最近的10条记录
-  const recentRecords = records.slice(0, 10);
+  // const recentRecords = records.slice(0, 10);
+  const recentRecords = records;
   
   recentRecords.forEach(record => {
     const recordItem = document.createElement('div');
@@ -419,4 +422,10 @@ function stopAutomation() {
       console.error('停止失败:', response);
     }
   });
+}
+
+// 打开高级设置页面
+function openAdvancedSettings() {
+  // 打开options页面
+  chrome.runtime.openOptionsPage();
 }

@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Microsoft Rewards Automator - 设置</title>
+  <link rel="icon" type="image/svg+xml" href="icons/icon16.svg">
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -165,6 +166,20 @@
       background-color: #dee2e6;
     }
     
+    #testHotTopicsBtn {
+      background-color: #28a745;
+      color: white;
+    }
+    
+    #testHotTopicsBtn:hover {
+      background-color: #218838;
+    }
+    
+    #testHotTopicsBtn:disabled {
+      background-color: #6c757d;
+      cursor: not-allowed;
+    }
+    
     .keywords-container {
       display: flex;
       gap: 10px;
@@ -204,7 +219,7 @@
 </head>
 <body>
   <h1>
-    <img src="icons/icon48.png" alt="Microsoft Rewards Automator">
+    <img src="icons/icon48.svg" alt="Microsoft Rewards Automator">
     Microsoft Rewards Automator - 设置
   </h1>
   
@@ -264,6 +279,11 @@
           <option value="zhihu">知乎热搜</option>
         </select>
         <div class="settings-note">选择获取热点关键词的平台</div>
+      </div>
+      
+      <div class="setting-item">
+        <button id="testHotTopicsBtn">测试热点数据获取</button>
+        <div class="settings-note">测试当前选择的热点来源是否能正常获取数据</div>
       </div>
       
       <div class="setting-item">

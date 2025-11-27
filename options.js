@@ -1,6 +1,7 @@
 // DOM元素
 const saveBtn = document.getElementById('saveBtn');
 const resetBtn = document.getElementById('resetBtn');
+const testHotTopicsBtn = document.getElementById('testHotTopicsBtn');
 const statusMessage = document.getElementById('statusMessage');
 
 // 默认设置
@@ -34,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 设置事件监听器
   saveBtn.addEventListener('click', saveSettings);
   resetBtn.addEventListener('click', resetSettings);
+  testHotTopicsBtn.addEventListener('click', testHotTopics);
 });
 
 // 加载设置
@@ -103,4 +105,30 @@ function showStatus(message, type) {
   setTimeout(() => {
     statusMessage.className = 'status-message';
   }, 3000);
+}
+
+// 测试热点数据获取
+function testHotTopics() {
+  const hotTopicSource = document.getElementById('hotTopicSource').value;
+  
+  // 设置按钮为加载状态
+  testHotTopicsBtn.disabled = true;
+  testHotTopicsBtn.textContent = '测试中...';
+  
+  // 发送消息给background.js请求热点数据
+  chrome.runtime.sendMessage({
+    type: 'testHotTopics',
+    source: hotTopicSource
+  }, (response) => {
+    // 恢复按钮状态
+    testHotTopicsBtn.disabled = false;
+    testHotTopicsBtn.textContent = '测试热点数据获取';
+    
+    if (response && response.success) {
+      showStatus(`成功获取${hotTopicSource}热点数据，共${response.keywords.length}条关键词: ${response.keywords.slice(0, 3).join(', ')}...`, 'success');
+      document.getElementById('customKeywords').value = response.keywords.join('\n ');
+    } else {
+      showStatus(`获取热点数据失败: ${response ? response.message || '未知错误' : '未知错误'}`, 'error');
+    }
+  });
 }
