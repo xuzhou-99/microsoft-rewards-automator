@@ -192,7 +192,7 @@ function updateSearchLog(results) {
     const pointsText = result.success ? `+${result.awardPoints}` : '';
     const totalText = result.success ? `total ${result.rewardsBalance}` : '';
     
-    logItem.textContent = `${statusIcon} ${result.keyword} ${pointsText} ${totalText}`;
+    logItem.textContent = `${statusIcon} ${result.title} ${pointsText} ${totalText}`;
     searchLog.appendChild(logItem);
   });
   
