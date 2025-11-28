@@ -528,234 +528,247 @@ async function openNewTab(title, targetUrl) {
   return new Promise((resolve) => {
     console.debug(`打开新标签页: ${title}`, { title, targetUrl });
 
-    chrome.tabs.create({ url: targetUrl, active: false }, (tab) => {
-      setTimeout(() => {
-        // 检查tab创建是否成功
-        if (chrome.runtime.lastError || !tab) {
-          console.error(`创建标签失败: ${chrome.runtime.lastError?.message}`);
-          resolve({
-            title: title,
-            targetUrl: targetUrl,
-            timestamp: new Date().toISOString(),
-            success: false,
-            points: "0",
-            error: chrome.runtime.lastError?.message || "Failed to create tab"
-          });
-          return;
-        }
-
-        console.log(`已创建标签ID: ${tab.id} 用于任务: ${title}`);
-
-        // 先检查标签页是否仍然存在
-        chrome.tabs.get(tab.id, (tabInfo) => {
-          if (chrome.runtime.lastError || !tabInfo) {
-            // 标签页已不存在
-            console.warn(`Tab ${tab.id} no longer exists for search: ${title}`);
-            const result = {
+    try {
+      chrome.tabs.create({ url: targetUrl, active: false }, (tab) => {
+        setTimeout(() => {
+          // 检查tab创建是否成功
+          if (chrome.runtime.lastError || !tab) {
+            console.error(`创建标签失败: ${chrome.runtime.lastError?.message}`);
+            resolve({
               title: title,
               targetUrl: targetUrl,
               timestamp: new Date().toISOString(),
               success: false,
               points: "0",
-              totalPoints: "0",
-              error: "Tab closed or unavailable"
-            };
-            resolve(result);
+              error: chrome.runtime.lastError?.message || "Failed to create tab"
+            });
             return;
           }
 
-          try {
-            chrome.scripting.executeScript({
-              target: { tabId: tab.id },
-              function: () => {
+          console.log(`已创建标签ID: ${tab.id} 用于任务: ${title}`);
 
-                console.log(`开始执行注入脚本获取积分`);
-
-                // 处理积分文本的辅助函数，支持带逗号的数字格式
-                const extractPoints = (text) => {
-                  if (!text) return null;
-                  // 移除逗号等千位分隔符
-                  const cleanText = text.replace(/,/g, '');
-                  const match = cleanText.match(/\d+/);
-                  return match ? parseInt(match[0], 10) : null;
-                };
-
-                // 解析奖励脚本内容
-                const parseRewardsScriptContent = function (sessionData) {
-                  try {
-                    if (sessionData) {
-                      // 提取有用的用户信息
-                      const userInfo = {
-                        isRewardUser: sessionData.IsRewardUser,
-                        isLevel2: sessionData.IsLevel2,
-                        balance: sessionData.Balance,
-                        rewardsBalance: sessionData.RewardsBalance,
-                        rebatesBalance: sessionData.RebatesBalance,
-                        previousBalance: sessionData.PreviousBalance,
-                        goalTrackBalance: sessionData.GoalTrackBalance,
-                        isAdultMSA: sessionData.IsAdultMSA,
-                        isRebatesUser: sessionData.IsRebatesUser,
-                        visitedCount: sessionData.VisitedCount,
-                        lastVisitTime: sessionData.LastVisitTime,
-                        timestamp: new Date().toISOString()
-                      };
-
-                      return userInfo;
-                    }
-                    return null;
-                  } catch (error) {
-                    console.error('解析奖励脚本内容时出错:', error);
-                    return null;
-                  }
-                }
-
-                // 1. 提取特定的script标签内容
-                let parsedRewardsData = null;
-                let rewardsScriptContent = null;
-                try {
-                  const scriptTags = document.querySelectorAll('script[type="text/javascript"][data-bing-script="1"]');
-                  for (const scriptTag of scriptTags) {
-                    const content = scriptTag.textContent.trim();
-                    if (content.includes('sj_evt') && content.includes('ModernRewards.ReportActivity')) {
-                      rewardsScriptContent = content;
-                      console.log('找到奖励脚本内容:', rewardsScriptContent.substring(0, 100) + '...');
-                      break;
-                    }
-                  }
-
-                  if (rewardsScriptContent) {
-                    // 尝试从脚本内容中提取RewardsSessionData对象
-                    // 查找以"RewardsSessionData":{ 开头，以 } 结尾的JSON字符串
-                    const sessionDataMatch = rewardsScriptContent.match(/"RewardsSessionData":(\{[^}]*\})/);
-                    if (sessionDataMatch && sessionDataMatch[1]) {
-                      // 提取JSON字符串
-                      const jsonString = sessionDataMatch[1];
-                      // 尝试解析JSON
-                      const RewardsSessionData = JSON.parse(jsonString);
-                      // 解析脚本内容中的用户信息和积分数据
-                      parsedRewardsData = parseRewardsScriptContent(RewardsSessionData);
-                      if (parsedRewardsData) {
-                        console.log('成功解析脚本内容:', parsedRewardsData);
-                        return {
-                          hasPoint: !!parsedRewardsData,
-                          pointAmount: parsedRewardsData?.balance || "0",
-                          selector: null,
-                          content: null,
-                          rewardsScriptContent: rewardsScriptContent,
-                          parsedRewardsData: parsedRewardsData
-                        };
-                      }
-                    }
-
-                  } else {
-                    console.log('未找到奖励脚本内容');
-                  }
-                } catch (e) {
-                  console.error('提取script标签内容时出错:', e);
-                }
-
-
-                // 2. 尝试从选择器中获取积分
-                // 尝试从页面中查找积分相关元素 - 扩展的选择器列表
-                const pointSelectors = [
-                  // 原有选择器
-                  '.points-container[data-tag="RewardsHeader.Counter"]',
-                  // 尝试通过aria-label属性查找
-                  '[aria-label*="积分"]',
-                  '[aria-label*="points"]'
-                ];
-
-                for (const selector of pointSelectors) {
-                  const elements = document.querySelectorAll(selector);
-                  for (const element of elements) {
-                    if (element) {
-                      console.debug(`尝试选择器 ${selector}:`, element);
-                      const text = (element.textContent || element.getAttribute('aria-label') || element.value || '').trim();
-                      console.debug(`积分文本 ${selector}:`, text);
-                      const points = extractPoints(text);
-                      if (points !== null) {
-                        return {
-                          hasPoint: true,
-                          pointAmount: points.toString(),
-                          selector: selector,
-                          content: text
-                        };
-                      }
-                    }
-                  }
-                }
-
-                // 如果以上方法都失败，仍然认为任务可能已完成，使用任务中的max值
-                return {
-                  hasPoint: false,
-                  pointAmount: task.max || "0",
-                };
-
-              }
-            }, (injectionResults) => {
-
-              // 无论结果如何，都尝试关闭标签页
-              try {
-                chrome.tabs.remove(tab.id, () => {
-                  if (chrome.runtime.lastError) {
-                    console.warn(`尝试关闭标签 ${tab.id} 时出错:`, chrome.runtime.lastError.message);
-                  } else {
-                    console.debug(`已成功关闭标签 ${tab.id}`);
-                  }
-                });
-              } catch (removeError) {
-                console.warn(`关闭标签 ${tab.id} 异常:`, removeError);
-              }
-
-              console.info('注入搜索脚本结果:', injectionResults);
-
-              const success = injectionResults[0] && injectionResults[0].result && injectionResults[0].result.hasPoint;
-              const resultData = success ? injectionResults[0].result : null;
+          // 先检查标签页是否仍然存在
+          chrome.tabs.get(tab.id, (tabInfo) => {
+            if (chrome.runtime.lastError || !tabInfo) {
+              // 标签页已不存在
+              console.warn(`Tab ${tab.id} no longer exists for search: ${title}`);
               const result = {
                 title: title,
                 targetUrl: targetUrl,
                 timestamp: new Date().toISOString(),
-                success: success,
-                points: resultData ? resultData.pointAmount || "0" : "0",
-                totalPoints: resultData ? resultData.totalPoints || "0" : "0",
-                rewardsScriptContent: resultData ? resultData.rewardsScriptContent : null,
-                parsedRewardsData: resultData ? resultData.parsedRewardsData : null,
-                previousBalance: resultData && resultData.parsedRewardsData ? resultData.parsedRewardsData.previousBalance || "0" : "0",
-                rewardsBalance: resultData && resultData.parsedRewardsData ? resultData.parsedRewardsData.rewardsBalance || "0" : "0",
+                success: false,
+                points: "0",
+                totalPoints: "0",
+                error: "Tab closed or unavailable"
               };
-
-              result.awardPoints = parseInt(result.rewardsBalance) - parseInt(result.previousBalance);
               resolve(result);
-            });
-          } catch (error) {
-            console.error(`执行脚本时出错: `, error);
-            // 尝试关闭标签页
-            try {
-              chrome.tabs.remove(tab.id, () => {
-                if (chrome.runtime.lastError) {
-                  console.warn(`尝试关闭标签 ${tab.id} 时出错(错误路径):`, chrome.runtime.lastError.message);
-                }
-              });
-            } catch (removeError) {
-              console.warn(`关闭标签 ${tab.id} 异常(错误路径):`, removeError);
+              return;
             }
 
-            const result = {
-              title: title,
-              targetUrl: targetUrl,
-              timestamp: new Date().toISOString(),
-              success: false,
-              points: "0",
-              error: error.message
-            };
+            try {
+              chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                function: () => {
 
-            resolve(result);
-          }
+                  console.log(`开始执行注入脚本获取积分`);
 
-        })
-      }, 5000)
-    });
-  })
+                  // 处理积分文本的辅助函数，支持带逗号的数字格式
+                  const extractPoints = (text) => {
+                    if (!text) return null;
+                    // 移除逗号等千位分隔符
+                    const cleanText = text.replace(/,/g, '');
+                    const match = cleanText.match(/\d+/);
+                    return match ? parseInt(match[0], 10) : null;
+                  };
+
+                  // 解析奖励脚本内容
+                  const parseRewardsScriptContent = function (sessionData) {
+                    try {
+                      if (sessionData) {
+                        // 提取有用的用户信息
+                        const userInfo = {
+                          isRewardUser: sessionData.IsRewardUser,
+                          isLevel2: sessionData.IsLevel2,
+                          balance: sessionData.Balance,
+                          rewardsBalance: sessionData.RewardsBalance,
+                          rebatesBalance: sessionData.RebatesBalance,
+                          previousBalance: sessionData.PreviousBalance,
+                          goalTrackBalance: sessionData.GoalTrackBalance,
+                          isAdultMSA: sessionData.IsAdultMSA,
+                          isRebatesUser: sessionData.IsRebatesUser,
+                          visitedCount: sessionData.VisitedCount,
+                          lastVisitTime: sessionData.LastVisitTime,
+                          timestamp: new Date().toISOString()
+                        };
+
+                        return userInfo;
+                      }
+                      return null;
+                    } catch (error) {
+                      console.error('解析奖励脚本内容时出错:', error);
+                      return null;
+                    }
+                  }
+
+                  // 1. 提取特定的script标签内容
+                  let parsedRewardsData = null;
+                  let rewardsScriptContent = null;
+                  try {
+                    const scriptTags = document.querySelectorAll('script[type="text/javascript"][data-bing-script="1"]');
+                    for (const scriptTag of scriptTags) {
+                      const content = scriptTag.textContent.trim();
+                      if (content.includes('sj_evt') && content.includes('ModernRewards.ReportActivity')) {
+                        rewardsScriptContent = content;
+                        console.log('找到奖励脚本内容:', rewardsScriptContent.substring(0, 100) + '...');
+                        break;
+                      }
+                    }
+
+                    if (rewardsScriptContent) {
+                      // 尝试从脚本内容中提取RewardsSessionData对象
+                      // 查找以"RewardsSessionData":{ 开头，以 } 结尾的JSON字符串
+                      const sessionDataMatch = rewardsScriptContent.match(/"RewardsSessionData":(\{[^}]*\})/);
+                      if (sessionDataMatch && sessionDataMatch[1]) {
+                        // 提取JSON字符串
+                        const jsonString = sessionDataMatch[1];
+                        // 尝试解析JSON
+                        const RewardsSessionData = JSON.parse(jsonString);
+                        // 解析脚本内容中的用户信息和积分数据
+                        parsedRewardsData = parseRewardsScriptContent(RewardsSessionData);
+                        if (parsedRewardsData) {
+                          console.log('成功解析脚本内容:', parsedRewardsData);
+                          return {
+                            hasPoint: !!parsedRewardsData,
+                            pointAmount: parsedRewardsData?.balance || "0",
+                            selector: null,
+                            content: null,
+                            rewardsScriptContent: rewardsScriptContent,
+                            parsedRewardsData: parsedRewardsData
+                          };
+                        }
+                      }
+
+                    } else {
+                      console.log('未找到奖励脚本内容');
+                    }
+                  } catch (e) {
+                    console.error('提取script标签内容时出错:', e);
+                  }
+
+
+                  // 2. 尝试从选择器中获取积分
+                  // 尝试从页面中查找积分相关元素 - 扩展的选择器列表
+                  const pointSelectors = [
+                    // 原有选择器
+                    '.points-container[data-tag="RewardsHeader.Counter"]',
+                    // 尝试通过aria-label属性查找
+                    '[aria-label*="积分"]',
+                    '[aria-label*="points"]'
+                  ];
+
+                  for (const selector of pointSelectors) {
+                    const elements = document.querySelectorAll(selector);
+                    for (const element of elements) {
+                      if (element) {
+                        console.debug(`尝试选择器 ${selector}:`, element);
+                        const text = (element.textContent || element.getAttribute('aria-label') || element.value || '').trim();
+                        console.debug(`积分文本 ${selector}:`, text);
+                        const points = extractPoints(text);
+                        if (points !== null) {
+                          return {
+                            hasPoint: true,
+                            pointAmount: points.toString(),
+                            selector: selector,
+                            content: text
+                          };
+                        }
+                      }
+                    }
+                  }
+
+                  // 如果以上方法都失败，仍然认为任务可能已完成，使用任务中的max值
+                  return {
+                    hasPoint: false,
+                    pointAmount: task.max || "0",
+                  };
+
+                }
+              }, (injectionResults) => {
+
+                // 无论结果如何，都尝试关闭标签页
+                try {
+                  chrome.tabs.remove(tab.id, () => {
+                    if (chrome.runtime.lastError) {
+                      console.warn(`尝试关闭标签 ${tab.id} 时出错:`, chrome.runtime.lastError.message);
+                    } else {
+                      console.debug(`已成功关闭标签 ${tab.id}`);
+                    }
+                  });
+                } catch (removeError) {
+                  console.warn(`关闭标签 ${tab.id} 异常:`, removeError);
+                }
+
+                console.info('注入搜索脚本结果:', injectionResults);
+
+                const success = injectionResults[0] && injectionResults[0].result && injectionResults[0].result.hasPoint;
+                const resultData = success ? injectionResults[0].result : null;
+                const result = {
+                  title: title,
+                  targetUrl: targetUrl,
+                  timestamp: new Date().toISOString(),
+                  success: success,
+                  points: resultData ? resultData.pointAmount || "0" : "0",
+                  totalPoints: resultData ? resultData.totalPoints || "0" : "0",
+                  rewardsScriptContent: resultData ? resultData.rewardsScriptContent : null,
+                  parsedRewardsData: resultData ? resultData.parsedRewardsData : null,
+                  previousBalance: resultData && resultData.parsedRewardsData ? resultData.parsedRewardsData.previousBalance || "0" : "0",
+                  rewardsBalance: resultData && resultData.parsedRewardsData ? resultData.parsedRewardsData.rewardsBalance || "0" : "0",
+                };
+
+                result.awardPoints = parseInt(result.rewardsBalance) - parseInt(result.previousBalance);
+                resolve(result);
+              });
+            } catch (error) {
+              console.error(`执行脚本时出错: `, error);
+              // 尝试关闭标签页
+              try {
+                chrome.tabs.remove(tab.id, () => {
+                  if (chrome.runtime.lastError) {
+                    console.warn(`尝试关闭标签 ${tab.id} 时出错(错误路径):`, chrome.runtime.lastError.message);
+                  }
+                });
+              } catch (removeError) {
+                console.warn(`关闭标签 ${tab.id} 异常(错误路径):`, removeError);
+              }
+
+              const result = {
+                title: title,
+                targetUrl: targetUrl,
+                timestamp: new Date().toISOString(),
+                success: false,
+                points: "0",
+                error: error.message
+              };
+
+              resolve(result);
+            }
+
+          })
+        }, 5000)
+      }
+      );
+    } catch (error) {
+      console.error(`创建标签页时出错: `, error);
+      resolve({
+        title: title,
+        targetUrl: targetUrl,
+        timestamp: new Date().toISOString(),
+        success: false,
+        points: "0",
+        error: `创建标签页时出错: ${error.message}`
+      });
+    }
+  });
 }
 
 // 执行一次搜索
