@@ -15,7 +15,8 @@
     "https://cn.bing.com/*",
     "https://rewards.microsoft.com/*",
     "https://rewards.bing.com/*",
-    "https://login.live.com/*"
+    "https://login.live.com/*",
+    "https://zj.v.api.aa1.cn/*"
   ],
   "background": {
     "service_worker": "background.js"
